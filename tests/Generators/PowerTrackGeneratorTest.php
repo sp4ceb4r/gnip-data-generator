@@ -7,13 +7,12 @@
 namespace Sp4ceb4r\GnipDataGenerator\Testing\Generators;
 
 use Illuminate\Support\Arr;
-use PHPUnit\Framework\TestCase;
 use Sp4ceb4r\GnipDataGenerator\Generators\PowerTrackGenerator;
 
 /**
  * Class PowerTrackGeneratorTest.
  */
-class PowerTrackGeneratorTest extends TestCase
+class PowerTrackGeneratorTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var PowerTrackGenerator

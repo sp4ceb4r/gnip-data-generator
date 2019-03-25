@@ -8,8 +8,6 @@ namespace Sp4ceb4r\GnipDataGenerator\Generators;
 
 use Carbon\Carbon;
 use Faker\Factory;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
 use Sp4ceb4r\GnipDataGenerator\Providers\DateTimeProvider;
 
 /**
@@ -60,7 +58,10 @@ class PowerTrackGenerator
             'postedTime' => $tweet['postedTime'],
         ];
 
-        Arr::set($tweet, 'gnip.matching_rules', [$this->getGenerator()->matchingRule()]);
+        if (!isset($tweet['gnip'])) {
+            $tweet['gnip'] = [];
+        }
+        $tweet['gnip']['matching_rules'] = [$this->getGenerator()->matchingRule()];
 
         return $tweet;
     }
@@ -73,7 +74,7 @@ class PowerTrackGenerator
         $reply = $this->tweet($actor, $location);
 
         // Update reply posted time to ensure after parent
-        $dt = array_first(explode('.', $parent['postedTime'])).'+0000';
+        $dt = $this->first(explode('.', $parent['postedTime'])).'+0000';
         $postedTime = Carbon::createFromFormat(\DateTime::ATOM, $dt)->addSeconds(mt_rand(1, 60 * 60));
         $reply['postedTime'] = $reply['object']['postedTime'] = DateTimeProvider::format($postedTime);
 
@@ -94,7 +95,7 @@ class PowerTrackGenerator
         // Set reply object
         $reply['object'] = [
             'objectType' => 'note',
-            'id' => $this->getGenerator()->gnipObjectSearchId(array_last(explode(':', $reply['id']))),
+            'id' => $this->getGenerator()->gnipObjectSearchId($this->last(explode(':', $reply['id']))),
             'summary' => $reply['body'],
             'link' => $reply['link'],
             'postedTime' => $reply['postedTime'],
@@ -116,7 +117,7 @@ class PowerTrackGenerator
         $retweet['retweetCount'] = $this->getGenerator()->shares();
 
         // Update retweet posted time to ensure after original
-        $dt = array_first(explode('.', $original['postedTime'])).'+0000';
+        $dt = $this->first(explode('.', $original['postedTime'])).'+0000';
         $postedTime = Carbon::createFromFormat(\DateTime::ATOM, $dt)->addSeconds(mt_rand(1, 60 * 60));
         $retweet['postedTime'] = DateTimeProvider::format($postedTime);
 
@@ -140,7 +141,7 @@ class PowerTrackGenerator
         $quote = $this->tweet($actor);
 
         // Update retweet posted time to ensure after original
-        $dt = array_first(explode('.', $original['postedTime'])).'+0000';
+        $dt = $this->first(explode('.', $original['postedTime'])).'+0000';
         $postedTime = Carbon::createFromFormat(\DateTime::ATOM, $dt)->addSeconds(mt_rand(1, 60 * 60));
         $retweet['postedTime'] = DateTimeProvider::format($postedTime);
 
@@ -167,7 +168,13 @@ class PowerTrackGenerator
         $quote['twitter_entities']['urls'] = $quote['twitter_entities']['urls'] = $twitterUrls;
         $quote['twitterEntities']['urls'] = $quote['twitterEntities']['urls'] = $twitterUrls;
 
-        Arr::set($quote, 'gnip.urls.0', $this->getGenerator()->gnipExpandedUrl($attachmentUrl, $original['link']));
+        if (!isset($quote['gnip'])) {
+            $quote['gnip'] = [];
+        }
+        if (!isset($quote['gnip']['urls'])) {
+            $quote['gnip']['urls'] = [];
+        }
+        $quote['gnip']['urls'][0] = $this->getGenerator()->gnipExpandedUrl($attachmentUrl, $original['link']);
 
         return $quote;
     }
@@ -187,7 +194,7 @@ class PowerTrackGenerator
             'media_url' => preg_replace('/^https/', 'http', $link = $this->getGenerator()->twitterImageUrl()),
             'media_url_https' => $link,
             'url' => $attachmentUrl,
-            'display_url' => 'pic.twitter.com/'.array_last(explode('/', $attachmentUrl)),
+            'display_url' => 'pic.twitter.com/'.$this->last(explode('/', $attachmentUrl)),
             'expanded_url' => $status['link'].'/photo/'.(string) $index,
             'type' => 'photo',
             'sizes' => [
@@ -218,7 +225,7 @@ class PowerTrackGenerator
     public function userMention($text, $actor)
     {
         $username = $actor['preferredUsername'];
-        $userId = (int) array_last(explode(':', $actor['id']));
+        $userId = (int) $this->last(explode(':', $actor['id']));
 
         $start = mb_strpos($text, $username) - 1;
         if ($start < 0) {
@@ -250,7 +257,7 @@ class PowerTrackGenerator
                 $value = $this->fill($value);
             } elseif (is_string($value) && preg_match('/({[^}]+})/', $value)) {
                 $value = preg_replace_callback('/({[^}]+})/', function ($matches) {
-                    list($method, $args) = $this->parseFormatter(Str::camel(trim($matches[1], '{}')));
+                    list($method, $args) = $this->parseFormatter($this->camel(trim($matches[1], '{}')));
 
                     if (empty($args)) {
                         return $this->getGenerator()->{$method};
@@ -299,7 +306,6 @@ class PowerTrackGenerator
     }
 
     /**
-     * TODO: Description
      *
      * @param string $name
      * @return array
@@ -323,5 +329,24 @@ class PowerTrackGenerator
         }
 
         return [$name, explode(',', $options)];
+    }
+
+    private function first(array $array = [])
+    {
+        foreach ($array as $item) {
+            return $item;
+        }
+
+        return null;
+    }
+
+    private function last(array $array = [])
+    {
+        return $this->first(array_reverse($array));
+    }
+
+    private function camel($value)
+    {
+        return lcfirst(str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $value))));
     }
 }
